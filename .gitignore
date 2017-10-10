@@ -2,3 +2,5 @@
 *.dcm
 *.pyc
 *.inp
+*.stp
+*.step
