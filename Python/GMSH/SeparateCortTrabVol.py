@@ -2,51 +2,55 @@
 """
 Created on Mon Oct 09 17:01:59 2017
 
-@author: Jean-Baptiste
+@author: Jean-Baptiste RENAULT
 """
 
 
 import os
-import time
 import numpy as np
 
 os.chdir('C:\Users\Jean-Baptiste\Documents\These\Methodes\BasicFunctions\Python\GMSH')
 
-import matlab.engine
-from script_checks import matlab_module_exists,find_ProsthFiles
+
+from script_checks import matlab_module_exists
 matlab_module_exists('matlab.engine')
- 
+import matlab
+
 Nodes = []
 Elmts3D = dict()
 Elmts3DCentroid = dict()
 Elmts2D = dict()
-ElmtCon = dict()
 
 SurfInElmts = []
 
-NodeSetIn = []
-NodeSetOut = []
+Output = ''
 
 SurfacesCounter = 0
 
-files = 'test3_stl.inp'
+fileIn = 'AA_Test2.inp'
 
-with open(files, "r") as f:
+with open(fileIn, "r") as f:
     line = f.readline()
+    Output += line
     while '*NODE' not in line:
         line = f.readline()
+        Output += line
         #print(line)
         
     line = f.readline()
+    Output += line
     while '***' not in line:
         previousline = line
         Nodes.append([float(j) for j in previousline.split(", ")[1:]])
         line = f.readline()
+        Output += line
 
     
     NdCon = dict((key, []) for key in range(1,1+len(Nodes)))
+    while '*ELEMENT, type=CPS' not in line:
+        line = f.readline()
     
-    line = f.readline()
+    
     while line[0:18] != '*ELEMENT, type=C3D':
         line = f.readline()
         while '*ELEMENT' not in line and '*ELSET' not in line:
@@ -55,6 +59,7 @@ with open(files, "r") as f:
             line = f.readline()
         SurfacesCounter +=1
     
+    Output += line
     line = f.readline()
     while 'PhysicalSurface' not in line:
         previousline = line
@@ -63,64 +68,79 @@ with open(files, "r") as f:
         Elmts3DCentroid[ElmtId] = np.mean([np.asarray(Nodes[nd-1])  for nd in Elmts3D[ElmtId]],axis=0)
         for ElmtNd in [int(j) for j in previousline.split(", ")][1:]:
             NdCon[ElmtNd].append(int(previousline.split(", ")[0]))
+        Output += line
         line = f.readline()
+        
     
-    while 'ELSET=PhysicalSurface2' not in line:
+    while 'ELSET=PhysicalSurface' not in line:
         line = f.readline()
     
     
     line = f.readline()
-    while '*' not in line:
+    while '*' not in line and line:
         previousline = line
         SurfInElmts.append([int(j) for j in previousline.split(", ")[0:-1]])
-        line = f.readline()
-    
-
-    while 'NSET=PhysicalSurface' not in line:
-        line = f.readline()
-    
-    line = f.readline()
-    while '*' not in line:
-        previousline = line
-        NodeSetIn.append([int(j) for j in previousline.split(", ")[0:-1]])    
-        line = f.readline()
-    
-    line = f.readline()
-    while '*' not in line:
-        previousline = line
-        NodeSetOut.append([int(j) for j in previousline.split(", ")[0:-1]])    
         line = f.readline()
 
     while line:   
         line = f.readline()
 
-NodeSetIn = [item for sublist in NodeSetIn for item in sublist]
-NodeSetOut = [item for sublist in NodeSetOut for item in sublist]
+Elmts3DCentroid_Id = Elmts3DCentroid.keys()
 
-ElSetOut_0 = [ item for nd in NodeSetOut for item in NdCon[nd] ]
-
-ElSetInOut = [ item for nd in NodeSetIn for item in NdCon[nd] ]
-
-#ElmtOut = [el in Elmts3D.keys()  for el in ElSetOut_0 ]
-
-NdCon2 = [ NdCon[key] for key in NdCon.keys() ]
-
-# Separate the two volumes by removing all elements touching the inside boundary 
-
-for el0 in Elmts3D.keys():
-    ElmtCon[el0] = np.unique([el for nd in Elmts3D[el0] for el in NdCon[nd] if el!=el0])
+# =============================================================================
+# Convert the PhyscialSurface ElSet to a face Vertex structure
+# =============================================================================
+SurfInElmts = [item for sublist in SurfInElmts for item in sublist]
+Faces = matlab.int32([Elmts2D[el] for el in SurfInElmts])
+Vertices = matlab.double(Nodes)
+Points = matlab.double([list(Elmts3DCentroid[el]) for el in Elmts3DCentroid_Id])
 
 
-ElmtsId = Elmts3D.keys();
+# =============================================================================
+# Launch the matlab engine and function
+# =============================================================================
+eng = matlab.engine.start_matlab()
 
-ElmtsIdOk = Elmts3D;
+In = eng.inpolyhedron(Faces,Vertices,Points,'FLIPNORMALS',True)
+In2 = np.array(In)
 
-for el in ElSetInOut:
-    ElmtsIdOk[el] = []
-
-#NdConOk[] = 
-
-#[ el for el in ElmtsId if el not in ElSetInOut ]
+ElmtIn = []
+ElmtOut = []
+i=0
+for el in Elmts3DCentroid_Id:
+   if In2[i][0]:
+       ElmtIn.append(el)
+   else:
+       ElmtOut.append(el)
+       
+   i+=1
+   
+fileOut = fileIn.split('.inp')[0]+'CortTrab.inp'
+with open(fileOut,'w') as f:
+    f.write(Output)
+    f.write('*ELSET,ELSET=TrabVol\n')
+    i=0
+    for el in ElmtIn:
+        if i<10 :
+            f.write(str(el)+', ')
+            i+=1
+        else:
+            f.write(str(el)+'\n')
+            i=0
+    
+    if i!=10:
+        f.write('\n')
+    
+    f.write('*ELSET,ELSET=CortVol\n')
+    i=1
+    for el in ElmtOut:
+        if i<10 :
+            f.write(str(el)+', ')
+            i+=1
+        else:
+            f.write(str(el)+'\n')
+            i=0
+        
 print('End of file reading')
 
 
