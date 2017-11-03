@@ -1,14 +1,9 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Aug 17 12:29:49 2017
-
-@author: Jean-Baptiste
-"""
-
-# txt2mtlb.py
-"""Python module demonstrates passing MATLAB types to Python functions"""
+# parsers2matlab.py
+"""Python module to pass MATLAB types to Python functions for parsing with
+MATLAB """
 def read_nodesGMSH(file_name):
-    import os
+    if '\\' not in file_name:
+        file_name = '\\' + file_name   
     f = open(file_name,'r')
     N_elmts=int(f.readlines()[4])
     XYZ={'X':[],'Y':[],'Z':[]}
@@ -23,6 +18,8 @@ def read_nodesGMSH(file_name):
     return XYZ
 
 def read_meshGMSH(file_name):
+    if '\\' not in file_name:
+        file_name = '\\' + file_name  
     import os
     cwd = os.getcwd()
     if file_name[1] != ':':
@@ -54,7 +51,8 @@ def read_meshGMSH(file_name):
     return XYZELMTS
 
 def read_maskMIMICS(file_name):
-    import os
+    if '\\' not in file_name:
+        file_name = '\\' + file_name  
     XYZ={'X':[],'Y':[],'Z':[]}
     f = open(file_name,'r')
     for line in f:
@@ -66,7 +64,8 @@ def read_maskMIMICS(file_name):
     return XYZ
 
 def read_exportGVMIMICS(file_name):
-    import os
+    if '\\' not in file_name:
+        file_name = '\\' + file_name  
     XYZI={'X':[],'Y':[],'Z':[],'I':[]}
     f = open(file_name,'r')
     for line in f:
@@ -91,22 +90,8 @@ def find_ProsthFile(directory,Pname,Ptype):
     for path, subdirs, files in os.walk(directory):
         for name in files:
             files_list.append(os.path.join(path, name))
-#    A = []
-#    for fdir in files_list:
-#        print(fdir)
-#        if prosthType in fdir and Pname in fdir :
-#            print("A file found")
-#            A.append(fdir)
-#    ## prosthType in fdir and
     A = [fdir for fdir in files_list  if prosthType in fdir and Pname in fdir]
-#    print(Pname)
-#    print(prosthType)
-#    print(directory)
-#    print(os.getcwd())
-#    ## print(files_list)
-#    print(A)
     mshFile = str(A[0])
-#    print(mshFile)
     return mshFile
 
 def find_ProsthFile_read_meshGMSH(directory,Pname,Ptype):
@@ -118,19 +103,20 @@ def find_ProsthFile_read_meshGMSH(directory,Pname,Ptype):
     return XYZElmts
 
 def read_CSfromOutput(file_name):
-    import os
+    if '\\' not in file_name:
+        file_name = '\\' + file_name  
     f = open(file_name,'r')
     XYZ={'X':[],'Y':[],'Z':[]}
     GoodLine = False
     for line in f:
-        if Goodline :
+        if GoodLine :
             linesplit=line.split(' ')
             XYZ['X'].append(float(linesplit[0]))
             XYZ['Y'].append(float(linesplit[1]))
             XYZ['Z'].append(float(linesplit[2]))
-            Goodline = False
+            GoodLine = False
             
-        if !Goodline and 'Axe ' in line:
-            Goodline = True
+        if ~GoodLine and 'Axe ' in line:
+            GoodLine = True
     f.close()
     return XYZ
